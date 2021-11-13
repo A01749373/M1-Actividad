@@ -1,25 +1,32 @@
 """
+Fecha de creación: 8 de noviembre del 2021
 Equipo 3: 
 Jorge Chávez Badillo				A01749448
 Liam Garay Monroy				   A01750632
 Ariadna Jocelyn Guzmán Jiménez 	 A01749373
 Amy Murakami Tsutsumi 			   A01750185
 
-Simulación de agentes (aspiradoras) que recorren una habitación y limpian las celdas sucias. Al final de la simulación se mostrará el tiempo necesario para que todas las celdas estén limpias, el porcentaje de celdas limpias al final de la simulación y el número de movimientos realizados por todos los agentes. Dado el tamaño de la habitación (MxN), el número de agentes, el porcentaje de celdas sucias y el tiempo máximo de ejecución. 
+Simulación de agentes (aspiradoras) que recorren una habitación y limpian las celdas sucias. Al final de la simulación se mostrará el tiempo necesario para que todas las celdas estén limpias, el porcentaje de celdas limpias al final de la simulación y el número de movimientos realizados por todos los agentes. Dado el tamaño de la habitación (MxN), el número de agentes, el porcentaje de celdas sucias y el tiempo máximo de ejecución.
 """
 
 # La clase `Model` se hace cargo de los atributos a nivel del modelo, maneja los agentes. 
 # Cada modelo puede contener múltiples agentes y todos ellos son instancias de la clase `Agent`.
 from mesa import Agent, Model 
 
-# Debido a que necesitamos un solo agente por celda elegimos `SingleGrid` que fuerza un solo objeto por celda.
+# Debido a que necesitamos varios agentes en la misma celda se usa MultiGrid para que se permita esta acción.
 from mesa.space import MultiGrid
 
 # Con `SimultaneousActivation` hacemos que todos los agentes se activen de manera simultanea.
 from mesa.time import SimultaneousActivation
+
+
+from mesa.datacollection import DataCollector
+
+import pandas as pd 
+
 import numpy as np
 
-class loseta(Agent):
+class Loseta(Agent):
     '''
     Representa un agente o una celda que tiene valor 0 si está limpia o 1 si está sucia
     '''
@@ -37,10 +44,12 @@ class Aspiradora(Agent):
     '''
     def __init__(self, unique_id, model):
         '''
-        Crea un agente Aspirdadora. También se define un nuevo estado cuyo valor será definido más adelante. 
+        Crea un agente Aspiradora. También se define un nuevo estado cuyo valor será definido más adelante. 
         '''
         super().__init__(unique_id, model)
         self.next_state = None
+        self.pasos = 0
+        self.limpias = 0
     
     def step(self):
         '''
@@ -48,6 +57,8 @@ class Aspiradora(Agent):
         '''
         self.move()
         self.limpia()
+        self.pasos += 1
+        
     
 
     def move(self):
@@ -59,6 +70,7 @@ class Aspiradora(Agent):
             moore=True,
             include_center=False
         )
+        
         new_position = self.random.choice(possible_steps)
         self.model.grid.move_agent(self, new_position)
     
@@ -66,11 +78,14 @@ class Aspiradora(Agent):
         '''
         Este método cambia el valor de una loseta sucia a una limpia, es decir, de 1 a 0.
         '''
+        
         cellmates = self.model.grid.get_cell_list_contents([self.pos])
-        loseta = cellmates[0]
-        if(type(loseta) != type(self)):
-            if(loseta.sucia == 1):
-                loseta.sucia = 0
+        Loseta = cellmates[0]
+        if(type(Loseta) != type(self)):
+            if(Loseta.sucia == 1):
+                Loseta.sucia = 0
+                self.limpias += 1
+
 
     def advance(self):
         '''
@@ -78,20 +93,20 @@ class Aspiradora(Agent):
         '''
         self.live = self.next_state
             
-class GameLifeModel(Model):
+class AspirarModel(Model):
     '''
-    Define el modelo del juego de la vida.
+    Define el modelo del movimiento de las aspiradoras, declara las celdas como losetas
+    limpias, así como define el porcentaje de las losetas sucias.
     '''
     def __init__(self, width, height):
-        self.num_agents = 30
+        self.num_agents =  3569
         self.grid = MultiGrid(width, height, True)
         self.schedule = SimultaneousActivation(self)
         self.running = True #Para la visualizacion usando navegador
-        
         #for (content, x, y) in self.grid.coord_iter():
         
         for (content, x, y) in self.grid.coord_iter():
-            c = loseta((x+2, y+2), self)
+            c = Loseta((x+2, y+2), self)
             self.grid.place_agent(c, (x, y))
             self.schedule.add(c)
         for i in range(self.num_agents):
@@ -99,10 +114,14 @@ class GameLifeModel(Model):
             self.grid.place_agent(a, (1, 1)) 
             self.schedule.add(a)
 
-        porcentaje = 20
+##
+        
+        porcentaje = 47
         area = self.grid.width*self.grid.height
         numLosetas = (area * porcentaje)//100
         print("Número de losetas:",numLosetas)
+        print("Agentes totales:",self.schedule.get_agent_count())
+
         
         for i in range(numLosetas):
             x = self.random.randrange(self.grid.width)
@@ -113,3 +132,4 @@ class GameLifeModel(Model):
     
     def step(self):
         self.schedule.step()
+        
